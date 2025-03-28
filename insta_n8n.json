@@ -1,0 +1,305 @@
+{
+  "name": "insta_n8n",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2e789526-19d2-4428-8936-bdfcaa69b24d",
+              "name": "searchTerm",
+              "value": "tibbis1983",
+              "type": "string"
+            },
+            {
+              "id": "95e3233b-68ea-4aa8-ba80-972ac75b423a",
+              "name": "targetUsername",
+              "value": "tibbis1983",
+              "type": "string"
+            },
+            {
+              "id": "7aa87eac-8ad5-4058-8974-61d965c6a8b9",
+              "name": "message",
+              "value": "what do you like to do?",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Input Data",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        -100,
+        -140
+      ],
+      "id": "b049c430-aa4f-4a5e-923a-daa253aca237",
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ff82c513-2454-47a1-a6b7-53a7be414fda",
+              "name": "=username",
+              "value": "your_email@your_provder.com",
+              "type": "string"
+            },
+            {
+              "id": "6b00414c-b2f8-4701-9ab0-3d917be21098",
+              "name": "password",
+              "value": "YOUR_PASSWORD",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Instagram Credentials",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        -100,
+        40
+      ],
+      "id": "227aec2d-0564-4ba4-803d-8c872080218f",
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://playwright-api:3333/run-test",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "name": "Execute Instagram Automation",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        700,
+        20
+      ],
+      "id": "0ee55967-57ae-4e91-9f17-c9bf92d215c4",
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Debug input data\nconsole.log(\"Input items:\", JSON.stringify(items, null, 2));\n\n// Get values correctly from the merged items\n// First find which item contains the username/password\nlet username = \"\";\nlet password = \"\";\nlet searchTerm = \"\";\nlet targetUsername = \"\";\nlet message = \"\";\n\n// Loop through all items to find the values\nfor (const item of items) {\n  if (item.json.username) username = item.json.username;\n  if (item.json.password) password = item.json.password;\n  if (item.json.searchTerm) searchTerm = item.json.searchTerm;\n  if (item.json.targetUsername) targetUsername = item.json.targetUsername;\n  if (item.json.message) message = item.json.message;\n}\n\nconsole.log(\"Found credentials:\", { username, password, searchTerm, targetUsername });\n\n// Playwright doesn't accept --env as a parameter, we need to format it differently\nconst requestBody = {\n  testFile: \"instagram.spec.js\",\n  params: {\n    // Individual environment variables\n    environmentVariables: {\n      INSTAGRAM_USERNAME: username,\n      INSTAGRAM_PASSWORD: password,\n      SEARCH_TERM: searchTerm,\n      TARGET_USERNAME: targetUsername,\n      MESSAGE: message\n    }\n  }\n};\n\n// Return data for the HTTP Request node\nreturn [{\n  json: requestBody\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        20
+      ],
+      "id": "b8195e57-3b8c-4498-aa94-f43b8ae1c40e",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        160,
+        40
+      ],
+      "id": "181f966e-9d3c-4013-ac97-2dea653daeed",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "55a9f1f7-d283-45e8-ad59-615ef5228a12",
+              "name": "browserWSEndpoint",
+              "value": "http://playwright-api:3333/run-test",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Set playwright URL",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        -100,
+        240
+      ],
+      "id": "f573106f-0a0a-4f06-aa9d-4aceed3a73ec",
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        -580,
+        -300
+      ],
+      "id": "d9694afc-2eb6-4cce-9050-cb40db6970b6",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -460,
+        -40
+      ],
+      "id": "8d22a0e1-5acd-4d05-b447-1ff67e3fe7f4",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash-thinking-exp",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        -40
+      ],
+      "id": "fd8180ea-8076-4c70-b49f-46a769974a53",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "GPbuY0Ko5wv1kugK",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Input Data": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Instagram Credentials": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Execute Instagram Automation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Instagram Automation": {
+      "main": [
+        []
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set playwright URL": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Input Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Los_Angeles",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "cf88c31b-e626-4d1a-a132-393e60ac21d5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9d868261b178583575d10e3d01e829b6af5f8714d1e9f4104ed1b9535dbda1e2"
+  },
+  "id": "0cCRLEZePklIhGxO",
+  "tags": []
+}

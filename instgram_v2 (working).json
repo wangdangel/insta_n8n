@@ -1,0 +1,677 @@
+{
+  "name": "instgram v2",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Parse the AI Agent's response and extract username\nlet searchTerm = \"\";\nlet targetUsername = \"\";\nlet foundUrl = \"\";\nlet extractedUsername = \"\";\n\ntry {\n  const aiOutput = items[0].json.output;\n\n  if (typeof aiOutput === 'string') {\n    // Special case: Check for direct I@ format first\n    const i_format_regex = /I@([a-zA-Z0-9._]+)/;\n    const i_format_match = aiOutput.match(i_format_regex);\n    \n    if (i_format_match && i_format_match[1]) {\n      // Direct extraction of pre-validated username\n      extractedUsername = i_format_match[1];\n      console.log(`Found pre-validated username via I@ format: ${extractedUsername}`);\n    } else {\n      // Regular expression to find the first URL in a string\n      const urlRegex = /(https?:\\/\\/)?([a-zA-Z0-9_.-]+(?:\\.[a-zA-Z0-9_.-]+)+[a-zA-Z0-9_\\-._~:\\/?#[\\]@!$&'()*+,;=.]+)/gim;\n      const match = aiOutput.match(urlRegex);\n\n      if (match && match.length > 0) {\n        foundUrl = match[0]; // Take the first URL found\n\n        // Attempt to extract username\n        try {\n          const urlParts = foundUrl.split('/');\n          const lastPart = urlParts[urlParts.length - 1];\n          const secondLastPart = urlParts[urlParts.length - 2];\n\n          // Handle different URL structures (e.g., with or without trailing slash)\n          if (lastPart === '') {\n            extractedUsername = secondLastPart;\n          } else {\n            extractedUsername = lastPart;\n          }\n\n          // Specific handling for Instagram to remove potential query parameters\n          if (foundUrl.includes(\"instagram.com\")) {\n            extractedUsername = extractedUsername.split('?')[0];\n          }\n\n          console.log(`Extracted username from URL: ${extractedUsername}`);\n        } catch (error) {\n          console.error(\"Error extracting username from URL:\", error);\n          extractedUsername = foundUrl; // Fallback to the full URL on error\n        }\n      } else {\n        // If no URL is found, check if the output is just a username\n        const usernameRegex = /^[a-zA-Z0-9._]{1,30}$/;\n        if (usernameRegex.test(aiOutput.trim())) {\n          extractedUsername = aiOutput.trim();\n          console.log(`Found direct username: ${extractedUsername}`);\n        }\n      }\n    }\n    \n    searchTerm = extractedUsername;\n    targetUsername = extractedUsername;\n  } else {\n    console.log(\"AI output is not a string:\", aiOutput);\n  }\n\n} catch (error) {\n  console.error(\"Error processing AI output:\", error);\n}\n\n// Create the output with the extracted username in both fields\nreturn [{\n  json: {\n    searchTerm,\n    targetUsername,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1224,
+        20
+      ],
+      "id": "117bf1b3-08a9-4743-814f-0d4e37667c25",
+      "name": "Parse AI Response"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ff82c513-2454-47a1-a6b7-53a7be414fda",
+              "name": "username",
+              "value": "YOUR_EMAIL@YOUR_PROVIDER.COM",
+              "type": "string"
+            },
+            {
+              "id": "6b00414c-b2f8-4701-9ab0-3d917be21098",
+              "name": "password",
+              "value": "YOUR_PAWSWORD",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Instagram Credentials",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        -1224,
+        220
+      ],
+      "id": "f0a0ac2d-1657-4b29-9e23-9632cee54068",
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://playwright-api:3333/run-test",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "name": "Execute Instagram Automation",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        2168,
+        170
+      ],
+      "id": "d0130cad-2290-49ed-b43a-9acd5358eb04",
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Debug input data\nconsole.log(\"Input items:\", JSON.stringify(items, null, 2));\n\n// Get values correctly from the merged items\n// First find which item contains the username/password\nlet username = \"\";\nlet password = \"\";\nlet searchTerm = \"\";\nlet targetUsername = \"\";\nlet message = \"\";\n\n// Loop through all items to find the values\nfor (const item of items) {\n  if (item.json.username) username = item.json.username;\n  if (item.json.password) password = item.json.password;\n  if (item.json.searchTerm) searchTerm = item.json.searchTerm;\n  if (item.json.targetUsername) targetUsername = item.json.targetUsername;\n  if (item.json.message) message = item.json.message;\n}\n\nconsole.log(\"Found credentials:\", { username, password, searchTerm, targetUsername });\n\n// Playwright doesn't accept --env as a parameter, we need to format it differently\nconst requestBody = {\n  testFile: \"instagram.spec.js\",\n  params: {\n    // Individual environment variables\n    environmentVariables: {\n      INSTAGRAM_USERNAME: username,\n      INSTAGRAM_PASSWORD: password,\n      SEARCH_TERM: searchTerm,\n      TARGET_USERNAME: targetUsername,\n      MESSAGE: message\n    }\n  }\n};\n\n// Return data for the HTTP Request node\nreturn [{\n  json: requestBody\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1940,
+        180
+      ],
+      "id": "fd346914-6078-4928-8261-ef23afa79636",
+      "name": "Prepare Request"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "55a9f1f7-d283-45e8-ad59-615ef5228a12",
+              "name": "browserWSEndpoint",
+              "value": "http://playwright-api:3333/run-test",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Set Playwright URL",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        -1224,
+        420
+      ],
+      "id": "ee05a8aa-55d8-4756-af2f-92f6eb8a5649",
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1820,
+        295
+      ],
+      "id": "c5329074-90a7-41b1-9547-d98095fc110d",
+      "name": "When chat message received",
+      "webhookId": "2119370c-627d-452f-b355-016688206000"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash-thinking-exp-1219",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1572,
+        515
+      ],
+      "id": "3ef8efd1-5d02-40b1-9867-408df7d722d4",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "GPbuY0Ko5wv1kugK",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -1452,
+        515
+      ],
+      "id": "61dea38e-ea4f-402d-9652-b0f4f4e875a9",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Find the Instagram account for {{ $json.chatInput }}. {{ $json.verbose ? \"Please explain your reasoning process.\" : \"Return only the URL.\" }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an AI assistant specialized in finding Instagram accounts. You will receive an input that is either a name, an online handle, or a specially formatted Instagram username.\n\n**Special Format Handling:** If the input starts with 'I@' (e.g., 'I@username'), this indicates a pre-validated Instagram username. Simply remove the 'I@' prefix and return the Instagram URL in the format 'https://www.instagram.com/username/' without any additional verification steps.\n\n**Handle Search:** If the input starts with '@', treat it as a handle and search for the exact handle on Instagram (without the '@'). Verify that the account is active and valid by checking the URL and looking for recent posts.\n\n**Name Search:** If the input does not start with '@' or 'I@', treat it as a name and perform a targeted web search to find the most prominent Instagram account associated with that name.\n\n* **Specific Search Queries:** When searching by name, use search queries like:\n    * `\"[Name] Instagram\"`\n    * `\"Instagram account for [Name]\"`\n\n* **Prioritization Logic:**\n    * **For High-Profile Individuals:** Prioritize accounts with substantial follower counts, relevant usernames that include the name or known variations, and clear associations in search snippets.\n    * **For Other Names and Partial Names:** Prioritize accounts matching the full name or including relevant descriptive terms, with follower count as a secondary indicator.\n\n* **Verification Steps:** Verify activity with recent posts and confirm the URL leads to a valid Instagram profile page.\n\n**Final Output:** Once you have identified the correct Instagram account, provide ONLY the URL in the format 'https://www.instagram.com/username/' without any additional explanation or commentary."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        -1600,
+        295
+      ],
+      "id": "6833cb88-ed28-4193-a93d-d7a711263bcd",
+      "name": "Username Agent"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Craft a personalized Instagram message for the Instagram user based on their profile analysis.\n\nPROFILE ANALYSIS:\n{{ $json.profileAnalysis.profileSummary }}\n\nVISUAL CONTENT:\n{{ $json.profileAnalysis.visualContent }}\n\nTHEMATIC SUMMARY:\n{{ $json.profileAnalysis.thematicSummary }}\n\nVISUAL ELEMENTS:\n- Subjects: {{ $json.visualElements.subjects.join(', ') }}\n- Color Scheme: {{ $json.visualElements.colorScheme.scheme.join(', ') }}\n- Colors: {{ $json.visualElements.colorScheme.colors.join(', ') }}\n- Mood: {{ $json.visualElements.mood.join(', ') }}\n- Quality: {{ $json.visualElements.quality }}\n- Style: {{ $json.visualElements.style.join(', ') }}\n\nCONTENT THEMES:\n- Themes: {{ $json.contentThemes.join(', ') }}\n\nPRODUCT INFORMATION:\nTag-AI is a local-first image tagging and search solution for professionals who need to organize large photo libraries. It uses AI to automatically analyze images, generate descriptive tags, and categorize visual content. It offers both local processing (ensuring privacy) and optional cloud-based analysis via Google's Gemini API. Tag-AI supports standard and RAW formats, features a SQLite database for natural language searches, and integrates with XMP metadata.\n\nYour message should:\n1. Reference specific visual elements or themes observed in their profile\n2. Connect their content style to how Tag-AI could benefit their workflow\n3. Be personalized based on their specific visual content\n4. Include the documentation link: https://ambientflare.com/docs/tag-ai/\n5. Mention they'll receive a license upon full release as a thank you\n6. make sure to include my  phonume 9+1 971-888-6320 and my email levi@ambientflare.com is following my signature\n\nWrite ONLY the message itself without explanations or notes. The tone should be friendly, professional, and non-sales-y. Keep it concise (5-7 sentences maximum) while maintaining a conversational tone.",
+        "options": {
+          "systemMessage": "=You are a marketing expert tasked with crafting personalized Instagram messages for users who might benefit from Tag-AI, an AI-powered photo tagging tool.\n\n## Your Task\nCreate a SINGLE, personalized Instagram message based on the analyzed profile data provided. The message should be tailored to the user's specific content style, themes, and visual elements.\n\n## Key Guidelines:\n1. Write ONE message per profile\n2. Focus on the most relevant visual elements or themes observed \n3. Connect their specific content style to how Tag-AI could benefit their workflow\n4. Keep it concise (5-7 sentences maximum)\n5. Be friendly, professional, and conversational\n6. ALWAYS include the documentation link: https://ambientflare.com/docs/tag-ai/\n7. ALWAYS mention they'll receive a license upon full release as a thank you\n\n## Message Structure:\n1. Greeting with name (if available) or handle\n2. Brief introduction of yourself (Levi, photographer and creator of Tag-AI)\n3. Specific observation about their content (be precise and authentic)\n4. Brief explanation of Tag-AI's benefits for their specific content type\n5. Invitation to test Tag-AI with mention of free license\n6. Documentation link\n7. Simple but strong call to action\n8. Sign-off (best, Levi)\n\n## Important Rules:\n- Generate ONE message only\n- Directly address what you can see in their profile\n- Keep the tone warm but professional\n- Avoid technical jargon\n- Never say \"I am a filmmaker\"\n- Never use the phrase \"If you're interested, you can find more information here\"\n- Always include your signature at the end\n- Never intrduce me before you talk about their work",
+          "maxIterations": 10,
+          "returnIntermediateSteps": false,
+          "passthroughBinaryImages": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        1132,
+        45
+      ],
+      "id": "616524c6-e159-4f36-a999-2053248ca547",
+      "name": "Mesagging Agent"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://playwright-api:3333/run-test",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "name": "Execute Instagram Automation1",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -564,
+        45
+      ],
+      "id": "4a7c11eb-c5cc-42fa-b546-945c6ad99f36",
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-pro-exp",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1220,
+        265
+      ],
+      "id": "67090505-178a-4758-ad3e-6f626951a0c1",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "GPbuY0Ko5wv1kugK",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Debug input data\nconsole.log(\"Input items:\", JSON.stringify(items, null, 2));\n\n// Get values correctly from the merged items\nlet username = \"\";\nlet password = \"\";\nlet targetUsername = \"\";\nlet numScreenshots = \"3\"; // Changed from 5 to 3\nlet scrollPercent = \"0.8\"; // Default value\nlet waitTime = \"3000\"; // Default value\n\n// Loop through all items to find the values\nfor (const item of items) {\n  if (item.json.username) username = item.json.username;\n  if (item.json.password) password = item.json.password;\n  if (item.json.targetUsername) targetUsername = item.json.targetUsername;\n  if (item.json.numScreenshots) numScreenshots = item.json.numScreenshots;\n  if (item.json.scrollPercent) scrollPercent = item.json.scrollPercent;\n  if (item.json.waitTime) waitTime = item.json.waitTime;\n}\n\nconsole.log(\"Found credentials:\", { username, password, targetUsername });\n\n// Playwright doesn't accept --env as a parameter, we need to format it differently\nconst requestBody = {\n  testFile: \"instagram-screenshots.spec.js\",\n  params: {\n    // Individual environment variables\n    environmentVariables: {\n      INSTAGRAM_USERNAME: username,\n      INSTAGRAM_PASSWORD: password,\n      TARGET_USERNAME: targetUsername,\n      NUM_SCREENSHOTS: numScreenshots, // Now set to 3\n      SCROLL_PERCENT: scrollPercent,\n      WAIT_TIME: waitTime\n    }\n  }\n};\n\n// Return data for the HTTP Request node\nreturn [{\n  json: requestBody\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -784,
+        45
+      ],
+      "id": "61c43c62-8b92-4a7d-8453-6137a498defe",
+      "name": "Screenshot Code"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  // Get the response from the Execute Instagram Automation node\n  const response = items[0]?.json;\n  \n  if (!response || !response.body) {\n    console.log('Response is undefined or has no body property');\n    return [];\n  }\n  \n  const body = response.body;\n  \n  // Check if we have screenshots in the body\n  if (!body.screenshots || !Array.isArray(body.screenshots)) {\n    console.log('No valid screenshots array found in body');\n    return [];\n  }\n  \n  const targetUsername = body.targetUsername || 'unknown';\n  const screenshots = body.screenshots;\n  \n  console.log(`Found ${screenshots.length} screenshots for user ${targetUsername}`);\n  \n  // FIRST APPROACH: Create only file storage items\n  // Process screenshots for file storage\n  const fileItems = [];\n  \n  for (let i = 0; i < screenshots.length; i++) {\n    const screenshot = screenshots[i];\n    const shotNumber = i + 1;\n    \n    // Extract the base64 data\n    let base64Data = screenshot.base64 || '';\n    \n    // Remove data URI prefix if present\n    if (base64Data.startsWith('data:image/png;base64,')) {\n      base64Data = base64Data.replace('data:image/png;base64,', '');\n    }\n    \n    // Only add valid screenshots\n    if (base64Data.length > 0) {\n      fileItems.push({\n        json: {\n          targetUsername,\n          filePath: `/tmp/shot${shotNumber}`,\n          shotNumber,\n          totalScreenshots: screenshots.length\n        },\n        binary: {\n          data: {\n            data: base64Data,\n            mimeType: 'image/png',\n            fileName: `shot${shotNumber}.png`\n          }\n        }\n      });\n    }\n  }\n  \n  console.log(`Returning ${fileItems.length} file items for storage`);\n  return fileItems;\n  \n} catch (error) {\n  console.error(\"Error in Transform Data Code:\", error.message);\n  return [{\n    json: {\n      error: true,\n      errorMessage: error.message\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -344,
+        45
+      ],
+      "id": "374a9eaa-7324-4417-8068-e5a2e08a02e4",
+      "name": "Transform Data Code",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        -1004,
+        245
+      ],
+      "id": "b920fa09-303f-4490-9bbe-1cc0500130cb",
+      "name": "Merge"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        692,
+        45
+      ],
+      "id": "9233721c-f2c8-4b52-ab73-3e2e26bb8a20",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash-thinking-exp-1219",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        184,
+        265
+      ],
+      "id": "9b0593ca-70d0-47c6-ba5e-a9b0dc86903c",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "GPbuY0Ko5wv1kugK",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze these Instagram screenshots for {{ $json.targetUsername }} as a COMPLETE PROFILE VIEW.\nThese 3 screenshots represent different sections of the same profile.\n[Screenshot 1 - top]\n[Screenshot 2 - scroll-1]\n[Screenshot 3 - scroll-2]\n\nAnalyze ALL screenshots thoroughly before forming your complete understanding of the profile.\n\nPlease structure your analysis in the following format:\n\n1. PROFILE SUMMARY (150-200 words):\n   - Username and account type (personal, business, creator)\n   - Bio information and notable profile elements\n   - Overall visual identity and aesthetic\n   - Follower count and engagement indicators (if visible)\n\n2. VISUAL CONTENT ANALYSIS (300-400 words):\n   - Detailed description of 3-5 specific images that stand out\n   - Subject matter patterns (people, objects, landscapes, etc.)\n   - Color schemes and visual themes\n   - Photographic style (professional, casual, artistic, documentary)\n   - Mood and emotional tone conveyed by the visuals\n   - Quality and production value of images\n\n3. THEMATIC SUMMARY (150-200 words):\n   - Core interests or passions evident in the content\n   - Lifestyle elements portrayed\n   - Cultural or community connections\n   - Apparent purpose of the account (personal sharing, influence, business)\n   - Distinctive characteristics that make this account unique\n\nReturn this analysis in JSON format with these three sections as key properties.",
+        "options": {
+          "systemMessage": "You are an expert visual content analyst specializing in Instagram profile assessment. Your task is to thoroughly examine sets of Instagram profile screenshots that represent different sections of the same profile.\n\nIMPORTANT ANALYSIS GUIDELINES:\n1. Treat all screenshots as parts of ONE WHOLE PROFILE, not separate accounts\n2. Focus on the VISUAL CONTENT of the images - what is actually shown in the photographs\n3. Provide specific, detailed descriptions of individual standout images\n4. Analyze color palettes, composition techniques, and visual storytelling\n5. Identify recurring subjects, settings, and visual motifs\n6. Note the quality, style, and apparent skill level of the photography\n7. Connect visual elements to derive themes and interests\n8. Assess the emotional tone and mood conveyed by the imagery\n9. Consider how text elements (captions, bio) complement the visual narrative\n10. Look for authenticity markers vs. curated/produced content\n\nBe highly specific and concrete in your observations. Instead of generic statements like \"nature photography,\" describe the specific natural elements shown (e.g., \"close-up photography of wildflowers and insects in natural settings\"). Instead of \"travel content,\" specify the locations, settings, or travel activities depicted.\n\nYour analysis should help someone understand not just what kind of content is posted, but the specific visual world this Instagram account creates through its imagery.\n\nAlways structure your output as requested in the prompt, with clear sections for profile summary, visual content analysis, and thematic summary. Return your analysis in proper JSON format."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        96,
+        45
+      ],
+      "id": "31127fa8-2105-44d0-b632-d00d2aa9bbea",
+      "name": "viewing agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced view refiner that extracts key insights from the viewing agent's visual analysis\nconst items = $input.all();\nconst enhancedItems = [];\n\nfor (const item of items) {\n  try {\n    // Initialize a new structured object with existing data\n    const enhancedData = {\n      ...item.json,\n      profileAnalysis: {}\n    };\n    \n    // Get the viewing agent's analysis\n    const analysisText = item.json.output || '';\n    \n    // Try to parse if it's already in JSON format\n    try {\n      const jsonData = JSON.parse(analysisText);\n      enhancedData.profileAnalysis = jsonData;\n    } catch (e) {\n      console.log('Analysis was not in JSON format, extracting insights manually');\n      \n      // Extract key visual insights manually from text analysis\n      enhancedData.profileAnalysis = {\n        profileSummary: extractSection(analysisText, 'PROFILE SUMMARY', 'VISUAL CONTENT ANALYSIS'),\n        visualContent: extractSection(analysisText, 'VISUAL CONTENT ANALYSIS', 'THEMATIC SUMMARY'),\n        thematicSummary: extractSection(analysisText, 'THEMATIC SUMMARY', null)\n      };\n      \n      // Extract key visual elements and themes\n      enhancedData.visualElements = {\n        subjects: extractSubjects(analysisText),\n        colorScheme: extractColorScheme(analysisText),\n        mood: extractMood(analysisText),\n        quality: extractQuality(analysisText),\n        style: extractStyle(analysisText)\n      };\n      \n      // Extract core themes and interests\n      enhancedData.contentThemes = extractThemes(analysisText);\n    }\n    \n    enhancedItems.push({\n      json: enhancedData,\n      binary: item.binary\n    });\n  } catch (error) {\n    console.error(`Error processing item: ${error.message}`);\n    // Return the original item if processing fails\n    enhancedItems.push(item);\n  }\n}\n\nreturn enhancedItems;\n\n// Helper functions for text analysis\n\nfunction extractSection(text, sectionStart, sectionEnd) {\n  const startRegex = new RegExp(`${sectionStart}[:\\\\s]*(.*?)`, 'i');\n  const startMatch = text.match(startRegex);\n  \n  if (!startMatch) return '';\n  \n  const startIndex = text.indexOf(startMatch[0]) + startMatch[0].length;\n  const endIndex = sectionEnd ? text.indexOf(sectionEnd) : text.length;\n  \n  return text.substring(startIndex, endIndex > 0 ? endIndex : text.length).trim();\n}\n\nfunction extractSubjects(text) {\n  // Look for common subject patterns in Instagram photos\n  const subjectPatterns = [\n    'people', 'person', 'portrait', 'selfie', 'face', \n    'landscape', 'nature', 'animal', 'pet', 'dog', 'cat',\n    'food', 'meal', 'dish', 'drink',\n    'building', 'architecture', 'interior', 'urban',\n    'product', 'item', 'clothing', 'fashion',\n    'art', 'design', 'illustration',\n    'travel', 'location', 'destination'\n  ];\n  \n  return findRelevantTerms(text, subjectPatterns, 5);\n}\n\nfunction extractColorScheme(text) {\n  // Color-related terms\n  const colorTerms = [\n    'vibrant', 'colorful', 'bright', 'bold', 'vivid',\n    'muted', 'pastel', 'soft', 'subtle', 'desaturated',\n    'monochrome', 'black and white', 'grayscale',\n    'warm', 'cool', 'neutral', 'earthy', 'natural',\n    'high contrast', 'low contrast',\n    'dark', 'light', 'shadowy', 'airy'\n  ];\n  \n  // Specific colors\n  const specificColors = [\n    'red', 'blue', 'green', 'yellow', 'orange', 'purple', \n    'pink', 'teal', 'turquoise', 'gold', 'silver', 'brown',\n    'beige', 'cream', 'white', 'black', 'gray'\n  ];\n  \n  // Find color scheme descriptors\n  const schemeTerms = findRelevantTerms(text, colorTerms, 3);\n  \n  // Find specific colors mentioned\n  const colorsMentioned = findRelevantTerms(text, specificColors, 4);\n  \n  return {\n    scheme: schemeTerms,\n    colors: colorsMentioned\n  };\n}\n\nfunction extractMood(text) {\n  const moodTerms = [\n    'happy', 'joyful', 'upbeat', 'cheerful', 'playful',\n    'serious', 'somber', 'melancholic', 'moody', 'dramatic',\n    'calm', 'peaceful', 'serene', 'tranquil', 'relaxed',\n    'energetic', 'dynamic', 'lively', 'vibrant', 'exciting',\n    'mysterious', 'ethereal', 'dreamy', 'surreal', 'fantastical',\n    'minimalist', 'clean', 'structured', 'organized', 'simple',\n    'romantic', 'intimate', 'personal', 'nostalgic', 'vintage',\n    'professional', 'polished', 'refined', 'elegant', 'sophisticated',\n    'raw', 'authentic', 'genuine', 'candid', 'spontaneous',\n    'artistic', 'creative', 'expressive', 'experimental', 'innovative'\n  ];\n  \n  return findRelevantTerms(text, moodTerms, 3);\n}\n\nfunction extractQuality(text) {\n  if (/professional|high quality|premium|excellent|exceptional|outstanding/i.test(text)) {\n    return 'professional';\n  }\n  if (/good quality|decent|solid|competent/i.test(text)) {\n    return 'good';\n  }\n  if (/average|standard|typical|normal|ordinary/i.test(text)) {\n    return 'average';\n  }\n  if (/amateur|casual|informal|simple|basic/i.test(text)) {\n    return 'casual';\n  }\n  if (/mixed|varied|inconsistent|diverse/i.test(text)) {\n    return 'mixed';\n  }\n  \n  return 'unspecified';\n}\n\nfunction extractStyle(text) {\n  const styleTerms = [\n    'portrait', 'landscape', 'street', 'documentary', \n    'lifestyle', 'product', 'flat lay', 'architectural',\n    'abstract', 'macro', 'minimalist', 'editorial',\n    'candid', 'posed', 'studio', 'outdoor', 'natural light',\n    'artistic', 'experimental', 'traditional', 'modern',\n    'vintage', 'film', 'digital', 'HDR', 'long exposure',\n    'commercial', 'advertising', 'travel', 'food', 'fashion'\n  ];\n  \n  return findRelevantTerms(text, styleTerms, 3);\n}\n\nfunction extractThemes(text) {\n  const themeTerms = [\n    // Lifestyle themes\n    'travel', 'adventure', 'exploration', 'wanderlust',\n    'fitness', 'health', 'wellness', 'workout', 'nutrition',\n    'fashion', 'style', 'beauty', 'makeup', 'skincare',\n    'food', 'cooking', 'baking', 'cuisine', 'recipe',\n    'home', 'interior', 'decor', 'architecture', 'design',\n    'family', 'parenting', 'children', 'relationship',\n    'nature', 'outdoors', 'environment', 'sustainability',\n    'art', 'creativity', 'craft', 'DIY', 'handmade',\n    'music', 'entertainment', 'performance', 'concert',\n    'business', 'entrepreneurship', 'career', 'professional',\n    'education', 'learning', 'knowledge', 'academic',\n    'technology', 'digital', 'innovation', 'gadget',\n    'spiritual', 'mindfulness', 'meditation', 'yoga',\n    'luxury', 'premium', 'high-end', 'exclusive',\n    'budget', 'affordable', 'value', 'saving',\n    \n    // Content focuses\n    'personal', 'diary', 'journal', 'daily life',\n    'inspiration', 'motivation', 'quote', 'affirmation',\n    'humor', 'comedy', 'funny', 'meme', 'joke',\n    'informative', 'educational', 'tutorial', 'how-to',\n    'review', 'recommendation', 'opinion', 'critique',\n    'storytelling', 'narrative', 'sequential', 'series',\n    'behind the scenes', 'process', 'making of', 'progress',\n    'community', 'social', 'cultural', 'identity'\n  ];\n  \n  return findRelevantTerms(text, themeTerms, 6);\n}\n\nfunction findRelevantTerms(text, termList, maxTerms = 3) {\n  const textLower = text.toLowerCase();\n  const foundTerms = [];\n  \n  for (const term of termList) {\n    // Create a word boundary regex to find whole words only\n    const regex = new RegExp(`\\\\b${term}\\\\b|\\\\b${term}s\\\\b|\\\\b${term}ing\\\\b`, 'i');\n    \n    if (regex.test(textLower)) {\n      // Check if we already have a similar term\n      const alreadyHasSimilar = foundTerms.some(found => \n        term.includes(found) || found.includes(term)\n      );\n      \n      if (!alreadyHasSimilar) {\n        foundTerms.push(term);\n      }\n      \n      if (foundTerms.length >= maxTerms) break;\n    }\n  }\n  \n  return foundTerms;\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        472,
+        45
+      ],
+      "id": "69c6bc90-01fe-4376-a0ce-9beeeeb532a3",
+      "name": "view reffiner"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced Image Buffer Node - Works even if not all shots are available\nconst items = $input.all();\nconsole.log(`Image Buffer received ${items.length} items`);\n\n// Extract target username from any item\nconst targetUsername = items.find(item => item.json?.targetUsername)?.json?.targetUsername || 'unknown';\n\n// Create a map to store shots by number\nconst shotMap = new Map();\nconst binaryData = {};\n\n// Process each item and organize by shot number\nfor (const item of items) {\n  console.log(`Processing item: ${JSON.stringify(item.json)}`);\n  \n  if (item.json && item.json.shotNumber && item.binary?.data) {\n    const shotNumber = item.json.shotNumber;\n    console.log(`Found shot ${shotNumber} with path ${item.json.filePath}`);\n    \n    shotMap.set(shotNumber, {\n      id: shotNumber,\n      position: shotNumber === 1 ? 'top' : `scroll-${shotNumber - 1}`,\n      filePath: item.json.filePath\n    });\n    \n    // Store binary data\n    binaryData[`shot${shotNumber}`] = item.binary.data;\n  }\n}\n\n// Log what we found\nconsole.log(`Found ${shotMap.size} shots: ${Array.from(shotMap.keys()).join(', ')}`);\n\n// Wait for more shots if we have fewer than 2 and it's been less than 30 seconds\n// (If we only have 1 shot, it's likely more are coming)\nif (shotMap.size <= 1) {\n  console.log('Not enough shots yet, waiting for more...');\n  return [];\n}\n\n// If we have at least 2 shots, proceed with what we have\n// This creates a more resilient workflow even if the 3rd shot never arrives\nconsole.log(`Proceeding with ${shotMap.size} shots`);\n\n// Sort shots by ID and convert to array\nconst sortedShots = Array.from(shotMap.values()).sort((a, b) => a.id - b.id);\n\nreturn [{\n  json: {\n    targetUsername,\n    imageCount: shotMap.size,\n    availableShots: Array.from(shotMap.keys()).sort(),\n    shotData: sortedShots,\n    complete: shotMap.size >= 2, // Consider it complete if we have at least 2 shots\n    message: shotMap.size < 3 ? \n      `Warning: Only ${shotMap.size}/3 expected screenshots were processed` :\n      `Success: All ${shotMap.size} screenshots processed`\n  },\n  binary: binaryData\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -124,
+        45
+      ],
+      "id": "1213cfe7-57c8-4af1-b0cb-4fec22e31fac",
+      "name": "Image Buffer"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        1728,
+        170
+      ],
+      "id": "95f4a1b6-ad18-4a09-9bfb-ad34846dbec0",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process the output from the Messaging Agent and format correctly for Instagram\nconst items = $input.all();\nconst processedItems = [];\n\nfor (const item of items) {\n  try {\n    // Start with a fresh object for the output\n    const newItem = {\n      json: {}\n    };\n\n    // Extract the message content from the correct field (prioritize output field)\n    let messageContent = '';\n    if (item.json.output) {\n      messageContent = item.json.output;\n    } else if (item.json.message) {\n      messageContent = item.json.message;\n    } else {\n      console.log(\"Warning: No message content found\");\n      messageContent = \"Hi there! I noticed your interesting content and wanted to connect about Tag-AI, a tool that might help with your photo organization. Check out https://ambientflare.com/docs/tag-ai/ for more info!\";\n    }\n\n    // First, find and temporarily protect URLs and email addresses\n    const urlPattern = /(https?:\\/\\/[^\\s]+)/g;\n    const emailPattern = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\\.[a-zA-Z0-9_-]+)/g;\n    const phonePattern = /(\\+\\d[\\d\\s-]{8,})/g;\n    \n    // Create replacements array to store temporary placeholders and their original values\n    const replacements = [];\n    \n    // Replace URLs with placeholders\n    messageContent = messageContent.replace(urlPattern, (match) => {\n      const placeholder = `__URL_${replacements.length}__`;\n      replacements.push({ placeholder, original: match });\n      return placeholder;\n    });\n    \n    // Replace emails with placeholders\n    messageContent = messageContent.replace(emailPattern, (match) => {\n      const placeholder = `__EMAIL_${replacements.length}__`;\n      replacements.push({ placeholder, original: match });\n      return placeholder;\n    });\n    \n    // Replace phone numbers with placeholders\n    messageContent = messageContent.replace(phonePattern, (match) => {\n      const placeholder = `__PHONE_${replacements.length}__`;\n      replacements.push({ placeholder, original: match });\n      return placeholder;\n    });\n    \n    // Now remove HTML tags\n    messageContent = messageContent.replace(/<[^>]*>/g, '');\n    \n    // Restore URLs, emails, and phone numbers from placeholders\n    replacements.forEach(({ placeholder, original }) => {\n      messageContent = messageContent.replace(placeholder, original);\n    });\n    \n    // Trim excessive whitespace\n    messageContent = messageContent.trim().replace(/\\n\\s*\\n/g, '\\n\\n');\n    \n    // Limit message length if it's too long (Instagram has a 1000 character limit)\n    if (messageContent.length > 1000) {\n      messageContent = messageContent.substring(0, 997) + '...';\n    }\n    \n    // Preserve any fields that might be needed for later nodes\n    // Copy specific fields we need from the original object\n    const keysToPreserve = [\n      'targetUsername', \n      'searchTerm',\n      'username',\n      'password',\n      'browserWSEndpoint'\n    ];\n    \n    keysToPreserve.forEach(key => {\n      if (item.json[key] !== undefined) {\n        newItem.json[key] = item.json[key];\n      }\n    });\n    \n    // Set the message field only (no output field)\n    newItem.json.message = messageContent;\n    \n    // If binary data exists, keep it\n    if (item.binary) {\n      newItem.binary = item.binary;\n    }\n    \n    console.log(`Processed message (${messageContent.length} chars): ${messageContent.substring(0, 50)}...`);\n    \n    // Add to processed items\n    processedItems.push(newItem);\n    \n  } catch (error) {\n    console.error(\"Error processing message:\", error.message);\n    // Return a simplified version of the original item if processing fails\n    const backupItem = {\n      json: {\n        message: \"Hi there! I noticed your interesting content and wanted to connect. I've built Tag-AI, a tool that might help with your photo organization. Check out https://ambientflare.com/docs/tag-ai/ for more info!\"\n      }\n    };\n    \n    // Copy critical fields if they exist\n    if (item.json.targetUsername) backupItem.json.targetUsername = item.json.targetUsername;\n    if (item.json.searchTerm) backupItem.json.searchTerm = item.json.searchTerm;\n    if (item.json.username) backupItem.json.username = item.json.username;\n    if (item.json.password) backupItem.json.password = item.json.password;\n    \n    processedItems.push(backupItem);\n  }\n}\n\nreturn processedItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1508,
+        45
+      ],
+      "id": "e6fab527-e443-4b56-a40b-59d5834ae8ad",
+      "name": "clean_up"
+    },
+    {
+      "parameters": {
+        "jsCode": "// This code should go in a node before your Messaging Agent\n// It takes multiple items and consolidates them into a single profile object\n\nconst items = $input.all();\nlet consolidatedData = {\n  profileAnalysis: {\n    profileSummary: '',\n    visualContent: '',\n    thematicSummary: ''\n  },\n  visualElements: {\n    subjects: [],\n    colorScheme: {\n      scheme: [],\n      colors: []\n    },\n    mood: [],\n    quality: '',\n    style: []\n  },\n  contentThemes: [],\n  targetUsername: ''\n};\n\n// Loop through all input items to find the first complete profile data\nfor (const item of items) {\n  // Get target username if available\n  if (item.json?.targetUsername && !consolidatedData.targetUsername) {\n    consolidatedData.targetUsername = item.json.targetUsername;\n  }\n  \n  // Extract profile analysis if available\n  if (item.json?.profileAnalysis) {\n    if (!consolidatedData.profileAnalysis.profileSummary && item.json.profileAnalysis.profileSummary) {\n      consolidatedData.profileAnalysis.profileSummary = item.json.profileAnalysis.profileSummary;\n    }\n    if (!consolidatedData.profileAnalysis.visualContent && item.json.profileAnalysis.visualContent) {\n      consolidatedData.profileAnalysis.visualContent = item.json.profileAnalysis.visualContent;\n    }\n    if (!consolidatedData.profileAnalysis.thematicSummary && item.json.profileAnalysis.thematicSummary) {\n      consolidatedData.profileAnalysis.thematicSummary = item.json.profileAnalysis.thematicSummary;\n    }\n  }\n  \n  // Extract visual elements if available\n  if (item.json?.visualElements) {\n    if (item.json.visualElements.subjects && item.json.visualElements.subjects.length > 0) {\n      consolidatedData.visualElements.subjects = item.json.visualElements.subjects;\n    }\n    if (item.json.visualElements.colorScheme) {\n      if (item.json.visualElements.colorScheme.scheme) {\n        consolidatedData.visualElements.colorScheme.scheme = item.json.visualElements.colorScheme.scheme;\n      }\n      if (item.json.visualElements.colorScheme.colors) {\n        consolidatedData.visualElements.colorScheme.colors = item.json.visualElements.colorScheme.colors;\n      }\n    }\n    if (item.json.visualElements.mood) {\n      consolidatedData.visualElements.mood = item.json.visualElements.mood;\n    }\n    if (item.json.visualElements.quality) {\n      consolidatedData.visualElements.quality = item.json.visualElements.quality;\n    }\n    if (item.json.visualElements.style) {\n      consolidatedData.visualElements.style = item.json.visualElements.style;\n    }\n  }\n  \n  // Extract content themes if available\n  if (item.json?.contentThemes && item.json.contentThemes.length > 0) {\n    consolidatedData.contentThemes = item.json.contentThemes;\n  }\n}\n\nconsole.log('Consolidated profile data:', JSON.stringify(consolidatedData, null, 2));\n\n// Return a single item with consolidated data\nreturn [{\n  json: consolidatedData\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        45
+      ],
+      "id": "26e8b92c-1924-45ac-8a28-a6c0ad02f9c6",
+      "name": "Code"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Instagram Credentials": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Request": {
+      "main": [
+        []
+      ]
+    },
+    "Set Playwright URL": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Username Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Username Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Username Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Username Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Set Playwright URL",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Instagram Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mesagging Agent": {
+      "main": [
+        [
+          {
+            "node": "clean_up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Instagram Automation1": {
+      "main": [
+        [
+          {
+            "node": "Transform Data Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Mesagging Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Screenshot Code": {
+      "main": [
+        [
+          {
+            "node": "Execute Instagram Automation1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform Data Code": {
+      "main": [
+        [
+          {
+            "node": "Image Buffer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Screenshot Code",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "viewing agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "viewing agent": {
+      "main": [
+        [
+          {
+            "node": "view reffiner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "view reffiner": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image Buffer": {
+      "main": [
+        [
+          {
+            "node": "viewing agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Prepare Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "clean_up": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Mesagging Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "5faf0084-712a-4bfc-b79b-868f66b6cf6e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9d868261b178583575d10e3d01e829b6af5f8714d1e9f4104ed1b9535dbda1e2"
+  },
+  "id": "TtoFldq6SRo4OmBQ",
+  "tags": []
+}
